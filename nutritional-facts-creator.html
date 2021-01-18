@@ -1,0 +1,318 @@
+<html>
+	<head>
+		<style>
+			#nutritional-facts{
+				font-size: 17px;
+				height: 500;
+				width: 500;
+			}
+			#nutritional-facts-item-selector{
+				display: none;
+			}
+			#nutrition-border{
+				opacity:1;
+				fill:#ffffff;
+				fill-opacity:1;
+				stroke:#000000;
+				stroke-width:5.29508114;
+				stroke-miterlimit:4;
+				stroke-dasharray:none;
+				stroke-opacity:1;
+			}
+		</style>
+		<script>
+			window.onload = function(){
+				class SvgEditor{
+					svgEditor(){
+						
+					}
+					createElement = function(element,attributes={},text=''){
+						var element = document.createElementNS('http://www.w3.org/2000/svg',element);
+						Object.entries(attributes).map(a => element.setAttribute(a[0],a[1]));
+						if(text){
+							element.textContent = text;
+						}
+						return element;
+					}
+					addElement = function(element,target,attributes={},text=''){
+						let  e = document.createElementNS('http://www.w3.org/2000/svg',element);
+						Object.entries(attributes).map(a => e.setAttribute(a[0],a[1]));
+						if(text){
+							e.textContent = text;
+						}
+						target.appendChild(e);
+					}
+				}
+				
+				var svg = new SvgEditor();
+				var nutritional = document.getElementById("nutritional-facts");
+				var inputs = document.getElementsByTagName("input");
+				var info = {};
+				
+				/*********************************************
+				Daily 2000 caloric intake values
+				daily2000values object stores all the daily caloric intake values
+				it assumes that nothing has changed from the fda and uses the daily values
+				specified for a 2000 caloric intake.
+					defaults is structured as follows:
+					0) daily intake (based upon a 2000 caloric intake specified by the fda)
+					1) metric measurement for the nutritional item
+					2) total number of tabs for value placement
+				***********************************************/
+				var daily2000values = {'daily values':{
+										'total fat':{'defaults':[78,'g',''],'value':0},
+										'saturated fat':{'defaults':[20,'mg','-'],'value':0},
+										'polyunsaturated fat':{'defaults':[0,'mg','-'],'value':0},
+										'cholesterol':{'defaults':[300,'mg',''],'value':0},
+										'sodium':{'defaults':[2300,'g',''],'value':0},
+										'total carbohydrate':{'defaults':[275,'g',''],'value':0},
+										'dietary fibers':{'defaults':[28,'g','-'],'value':0},
+										'total sugars':{'defaults':[0,'g','-'],'value':0},
+										'added sugar':{'defaults':[50,'g','--'],'value':0},
+										'protein':{'defaults':[50,'g',''],'value':0}},
+									  'vitamins':{
+										'vitamin A':{'defaults':[900,'mcg RAE'],'value':0},
+										'vitamin B6':{'defaults':[1.7,'mg'],'value':0},
+										'vitamin B12':{'defaults':[2.4,'mcg'],'value':0},
+										'vitamin C':{'defaults':[90,'mg'],'value':0},
+										'vitamin D':{'defaults':[20,'mcg'],'value':0},
+										'vitamin E':{'defaults':[15,'mg'],'value':0},
+										'vitamin K':{'defaults':[120,'mcg'],'value':0},
+										'iron':{'defaults':[18,'mg'],'value':0}}
+									  };
+				
+				var nutritionSelector = document.getElementById('nurtional-facts-item-selector').getElementsByTagName('select')[0];
+				var factsSelector = document.getElementById('nutritional-main-item-selector').getElementsByTagName('select')[0];
+				for(a in daily2000values){
+					var option = document.createElement('option');
+					option.setAttribute('value',a);
+					option.innerHTML = a;
+					factsSelector.appendChild(option);
+				}
+				factsSelector.onchange = function(){
+					var option = factsSelector.value;
+					while(nutritionSelector.length > 1){
+						nutritionSelector.removeChild(nutritionSelector.children[nutritionSelector.children.length-1]);
+					}
+					for(a in daily2000values[option]){
+						var optionS = document.createElement('option');
+						optionS.innerHTML = a;
+						optionS.setAttribute('value',a);
+						nutritionSelector.appendChild(optionS);
+					}
+					nutritionSelector.onchange = function(){
+						var selection = nutritionSelector.value;
+						document.getElementById('nutrition-weight').value="";
+						document.getElementById('nutrition-weight').onkeyup = function(el){
+							daily2000values[option][selection]['value'] = el.currentTarget.value;
+							displayAllValues();
+						}
+					}
+				}
+									  
+				var curr = '';
+				
+				function displayAllValues(){
+					document.getElementById('daily-value').textContent = '';
+					var lastElement = '';
+					var linecount = displayDailyValues(daily2000values['daily values']);
+					if(linecount['lastElement'] != ''){
+						lastElement = linecount['lastElement'].y;
+						linecount = displayDailyValues(daily2000values['vitamins'],linecount['linecount'],false);
+					}
+					if(linecount['lastElement'] != '') lastElement = linecount['lastElement'].y;
+					var info = document.getElementById('note');
+					info.setAttribute('y',lastElement);
+					document.getElementById('nutrition-holder').setAttribute('height',lastElement+info.getBBox().height+5);
+				}
+				
+				function displayDailyValues(array,linecount=0,zeroed=true){
+					var mainwidth = 200;
+					var lastLine = '';
+					for(name in array){
+						if(array[name]['value'] != 0 || zeroed){
+							var sectionName = array[name];
+							var group = svg.createElement('svg');
+							var textElement = svg.createElement('text',{'y':100+(13*linecount)+'pt','x':'21pt'});
+							var textName = svg.createElement('tspan',{'style':'font-weight:bold'},name.replace(/(^\w{1})|(\s+\w{1})/g,letter=>letter.toUpperCase()));
+							textElement.appendChild(textName);
+							var textWeight = svg.createElement('tspan',{'x':'60pt'},parseFloat(sectionName['value']).toFixed(2).replace('.00','')+sectionName['defaults'][1]);
+							textElement.appendChild(textWeight);
+							if(sectionName['defaults'][0] != 0){
+								var textPerc = svg.createElement('tspan',{'x':mainwidth+'pt','text-anchor':'end','style':'text-align:right'},parseFloat((sectionName['value']*100)/sectionName['defaults'][0]).toFixed(2).replace('.00','')+'%');
+								textElement.appendChild(textPerc);
+							}
+							group.appendChild(textElement);
+							document.getElementById('daily-value').appendChild(group);
+							var line = svg.createElement('line',{'x1':textElement.getAttribute('x'),'y1':parseFloat(textElement.getAttribute('y').replace('pt',''))+4+'pt','x2':mainwidth+'pt','y2':parseFloat(textElement.getAttribute('y'))+4+'pt','stroke-width':'0.5pt','stroke':'black'});
+							group.appendChild(line);
+							if(sectionName['defaults'][2]){
+								textName.setAttribute('x',(sectionName['defaults'][2].split('-').length*10)+10+'pt');
+							}
+							if(textName.getBBox().width+textName.getBBox().x > textWeight.getBBox().x){
+								textWeight.setAttribute('x',textName.getBBox().width+textName.getBBox().x+10);
+							}
+							//addEditButtons(name,textElement.getBoundingClientRect());
+							lastLine = line;
+							++linecount;
+						}
+					}
+					if(lastLine != ''){
+						lastLine.setAttribute('stroke-width','3pt');
+						lastLine = lastLine.getBBox();
+					}
+					return {'lastElement':lastLine,'linecount':linecount};
+				}
+				
+				function displayNutritionFacts(){
+					var linecount = 0;
+					document.getElementById('daily-value').innerHTML = '';
+					for(section in daily2000values){
+						displayDailyValues(daily2000values[section]);
+					}
+				}
+				
+				function addEditButtons(name,bounds){
+					var editHolder = document.createElement('div');
+					editHolder.style.position = 'absolute';
+					editHolder.setAttribute('id','edit-'+name.replace(' ','_'));
+					editHolder.style.top = bounds.y+'px';
+					editHolder.style.left = bounds.x+'px';
+					var editButton = document.createElement('span');
+					editButton.textContent = '?';
+					var deleteButton = document.createElement('span');
+					deleteButton.textContent = '-';
+					editHolder.appendChild(editButton);
+					editHolder.appendChild(deleteButton);
+					document.getElementById('svg-holder').appendChild(editHolder);
+				}
+				
+				function placeText(element){
+					addElement('text',nutritional,{});
+				}
+				
+				var test = document.getElementById('season-filler').getElementsByTagName('rect');
+				for(var i = 0; i < test.length; ++i){
+					test[i].onmouseover = function(el){
+						var contents = el.currentTarget.getBBox();
+						
+					}
+				}
+				
+				function getIngredients(){
+					var url = "https://api.nal.usda.gov/fdc/v1/foods/search?query="
+				}
+			}
+		</script>
+	</head>
+	<body>
+		<div>
+			<div id="nutritional-main-item-selector">
+				<select>
+					<option value="">- select nutritional item -</option>
+				</select>
+			</div>
+			<div id="nurtional-facts-item-selector">
+				<select>
+					<option value="">- select nutritional dv item -</option>
+				</select>
+			</div>
+			<form id="nutrition-form">
+				<input type="number" name="nutrition-weight" id="nutrition-weight"/>
+			</form>
+		</div>
+		<div id="svg-holder">
+			<svg viewBox="0 0 700 500" width="700pt" height="500pt" xmlns="http://www.w3.org/2000/svg">
+				<svg viewBox="21 0 260 700" width="260pt" height="500pt">
+					<style>
+						svg text,svg svg{
+							font-family: calibri,san-serif;
+							font-style: none;
+							font-size: 10pt;
+						}
+						#nutrition-facts{
+							font-style:normal;
+							font-weight:bold;
+							font-size:27pt;
+							line-height:1.25;
+							letter-spacing:0px;
+							word-spacing:0px;
+							display:inline;
+							fill:#000000;
+							fill-opacity:1;
+						}
+						#calories{
+							font-style:normal;
+							font-weight: bold;
+							font-size:19pt;
+							line-height:1.25;
+							letter-spacing:0px;
+							word-spacing:0px;
+							display:inline;
+							fill:#000000;
+							fill-opacity:1;
+							stroke:none;
+						}
+						#calories-total{
+							font-style:normal;
+							font-size:25pt;
+							line-height:1.25;
+							letter-spacing:0px;
+							word-spacing:0px;
+							display:inline;
+							fill:#000000;
+							fill-opacity:1;
+							stroke:none;
+						}
+						.bold{
+							font-weight: bold;
+						}
+						#daily-note{
+							font-size: 6pt;
+							font-weight: bold;
+						}
+						#note text{
+							font-size: 6pt;
+						}
+					</style>
+					<rect x="18pt" y="1pt" width="185pt" height="180" stroke-width="2pt" stroke="black" fill="none" id="nutrition-holder"></rect>
+					<text x="21pt" y="22pt" id="nutrition-facts">Nutrition Facts</text>
+					<line x1="21pt" y1="26pt" x2="200pt" y2="26pt" stroke="black" stroke-width="0.5pt"></line>
+					<g>
+						<g>
+						<text x="21pt" y="36pt">12 Servings per container</text>
+						</g>
+						<g style="font-weight: bold;">
+							<text x="21pt" y="46pt">Serving Size</text>
+							<text x="200pt" y="46pt" writing-mode="rl" text-anchor="end">1 Tbsp. (12.6g)</text>
+						</g>
+					</g>
+					<line x1="21pt" y1="51pt" x2="200pt" y2="51pt" stroke="black" stroke-width="4pt"></line>
+					<text x="21pt" y="61pt" class="bold" style="font-size: 6pt;">Amount per serving</text>
+					<text x="21pt" y="77pt" id="calories">Calories</text>
+					<text x="200pt" y="77pt" writing-mode="rl" text-anchor="end" id="calories-total" class="bold">5</text>
+					<line x1="21pt" y1="82pt" x2="200pt" y2="82pt" stroke="black" stroke-width="2pt"/>
+					<text x="200pt" y="91pt" writing-mode="rl" text-anchor="end" id="daily-note">% Daily Value*</text>
+					<svg id="daily-value" width="300pt">
+					</svg>
+					<svg id="vitamins">
+					</svg>
+					<svg id="note" width="200pt" height="200" x="21pt" y="100pt">
+						<line x1="0pt" y1="0" x2="179pt" y="0" stroke="black" stroke-width="5pt"></line>
+						<text x="0pt" y="0pt">
+							<tspan y="10pt" x="0pt">*</tspan>
+							<tspan y="10pt" x="10pt">The % Daily Value (DV) tells you how much a nutrient in</tspan>
+							<tspan y="18pt" x="10pt">a serving of food contributes to a daily diet. 2,000 calories</tspan>
+							<tspan y="26pt" x="10pt">a day is used for general nutrition advice.</tspan>
+						</text>
+					</svg>
+				</svg>
+				<svg id="season-filler" x="270pt" y="0pt">
+					<rect x="0pt" y="0pt" width="200" height="10"style="fill: black;" info="{'total':0}"/>
+					<rect x="0pt" y="7pt" width="200" height="30" style="fill: green;" info="{'total':0}"/>
+					<rect x="0pt" y="29pt" width="200" height="50" style="fill: tan;" info="{'total':0}"/>
+				</svg>
+			</svg>
+		</div>
+	</body>
+</html>
